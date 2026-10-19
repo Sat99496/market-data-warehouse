@@ -1,0 +1,31 @@
+name: market_dw
+version: "1.0.0"
+config-version: 2
+profile: market_dw
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  market_dw:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: gold
+      +materialized: table
+
+seeds:
+  market_dw:
+    +schema: reference
+
+flags:
+  send_anonymous_usage_stats: false

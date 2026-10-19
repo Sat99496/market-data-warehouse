@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: stg_prices
+    description: Cleaned, typed and deduplicated daily prices in the instrument's quote unit (USD or GBX pence).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [symbol, trade_date]
+    columns:
+      - name: symbol
+        data_tests: [not_null]
+      - name: trade_date
+        data_tests: [not_null]
+      - name: close_quote
+        data_tests: [not_null]
+
+  - name: stg_fx_rates
+    description: Cleaned, deduplicated Bank of England spot rates.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [rate_date, currency_code]
+    columns:
+      - name: units_per_gbp
+        data_tests: [not_null]
+      - name: currency_code
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["USD", "EUR"]

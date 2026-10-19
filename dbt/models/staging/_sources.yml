@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw tables loaded from the Bronze layer by ingestion/load_raw.py.
+    schema: raw
+    tables:
+      - name: prices
+        description: Daily OHLCV bars from Alpha Vantage, one file per symbol per ingest date.
+        loaded_at_field: "cast(_ingested_at as timestamp)"
+      - name: fx
+        description: Bank of England daily spot rates (units of foreign currency per 1 GBP).
+        loaded_at_field: "cast(_ingested_at as timestamp)"

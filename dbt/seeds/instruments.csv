@@ -1,0 +1,9 @@
+symbol,company_name,exchange,listing_currency,quote_unit,price_divisor,sector
+AAPL,Apple Inc.,NASDAQ,USD,USD,1,Technology
+MSFT,Microsoft Corporation,NASDAQ,USD,USD,1,Technology
+NVDA,NVIDIA Corporation,NASDAQ,USD,USD,1,Technology
+JPM,JPMorgan Chase & Co.,NYSE,USD,USD,1,Financials
+LSEG.LON,London Stock Exchange Group plc,LSE,GBP,GBX,100,Financials
+HSBA.LON,HSBC Holdings plc,LSE,GBP,GBX,100,Financials
+BARC.LON,Barclays plc,LSE,GBP,GBX,100,Financials
+VOD.LON,Vodafone Group plc,LSE,GBP,GBX,100,Telecommunications

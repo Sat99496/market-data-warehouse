@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      MDW_DATA_DIR: ${{ github.workspace }}/data
+      MDW_WAREHOUSE: ${{ github.workspace }}/data/warehouse.duckdb
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Unit tests (ingestion)
+        run: pytest -q
+
+      - name: Ingest synthetic data into Bronze and DuckDB
+        run: python -m ingestion.run --sample
+
+      - name: dbt build (seeds, snapshot, models, data tests)
+        run: dbt build --project-dir dbt --profiles-dir dbt --target dev
+
+      - name: Generate dbt docs
+        run: dbt docs generate --project-dir dbt --profiles-dir dbt --target dev
+
+      - name: Upload dbt docs
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-docs
+          path: dbt/target

@@ -1,0 +1,11 @@
+snapshots:
+  - name: instruments_snapshot
+    description: >
+      SCD Type 2 history of instrument reference data. When a company is renamed or
+      re-classified in seeds/instruments.csv, the old version is closed and a new one opened.
+    relation: ref('instruments')
+    config:
+      schema: snapshots
+      unique_key: symbol
+      strategy: check
+      check_cols: [company_name, exchange, listing_currency, quote_unit, price_divisor, sector]

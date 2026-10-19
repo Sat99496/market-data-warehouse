@@ -1,0 +1,67 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: One row per calendar day in the price history.
+    columns:
+      - name: date_key
+        description: Integer key in YYYYMMDD form.
+        data_tests: [unique, not_null]
+
+  - name: dim_currency
+    description: Currencies used for listing and conversion.
+    columns:
+      - name: currency_key
+        data_tests: [unique, not_null]
+      - name: currency_code
+        data_tests: [unique, not_null]
+
+  - name: dim_instrument
+    description: SCD Type 2 instrument dimension; one row per version of each instrument.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [symbol, valid_from]
+    columns:
+      - name: instrument_key
+        data_tests: [unique, not_null]
+      - name: exchange
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["NASDAQ", "NYSE", "LSE"]
+      - name: price_divisor
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 100]
+
+  - name: fact_daily_prices
+    description: Daily prices per instrument in local currency and GBP.
+    columns:
+      - name: price_key
+        data_tests: [unique, not_null]
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: instrument_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_instrument')
+                field: instrument_key
+      - name: currency_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_currency')
+                field: currency_key
+      - name: close_gbp
+        description: Fails if any price could not be converted to GBP (missing FX rate).
+        data_tests: [not_null]
