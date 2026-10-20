@@ -13,6 +13,8 @@ Alpha Vantage API ─┐                         ┌─ dim_date
                    ├─► Bronze ─► raw ─► stg ─┼─ dim_currency
 Bank of England ───┘   JSONL     DuckDB  dbt └─ fact_daily_prices ─► Power BI
 (GBP FX rates)        (by ingest            (prices in local currency and GBP)
+                                                    │
+                                                    └─► Streamlit dashboard
                        date)
 ```
 
@@ -43,6 +45,20 @@ Bank of England ───┘   JSONL     DuckDB  dbt └─ fact_daily_prices �
 - **SCD Type 2 instruments.** Renames and sector changes are tracked by a dbt snapshot. The first version is back-dated so historical prices still join.
 - **One codebase, two engines.** Engine-specific SQL (date series, forward fill, date formatting) sits behind dispatch macros in `dbt/macros/portable.sql`, so the same models run on DuckDB in CI and on Databricks in production.
 
+## Dashboard
+
+A Streamlit app (`dashboard/app.py`) reads only from the Gold star schema:
+
+- **Performance:** growth of £100 invested in each stock, plus return, annualised volatility and traded value in GBP.
+- **Currency impact:** how much USD/GBP moves added to or removed from a UK investor's return on US stocks.
+- **Data:** the daily price table, filterable and downloadable as CSV.
+
+```bash
+streamlit run dashboard/app.py
+```
+
+![Dashboard](docs/dashboard.png)
+
 ## Data quality
 
 - **29 dbt data tests:** unique and not-null keys, referential integrity from the fact to every dimension, and accepted values.
@@ -50,7 +66,7 @@ Bank of England ───┘   JSONL     DuckDB  dbt └─ fact_daily_prices �
   - `assert_valid_price_bars` – positive prices and low ≤ open/close ≤ high.
   - `assert_fx_not_stale` – flags an FX feed that has stopped publishing.
   - `unique_combination` – a generic test for composite keys.
-- **10 pytest unit tests:** parsing, API error handling (Alpha Vantage returns HTTP 200 on rate limits), watermark behaviour, and an end-to-end rerun check.
+- **11 pytest tests:** parsing, API error handling (Alpha Vantage returns HTTP 200 on rate limits), watermark behaviour, an end-to-end rerun check, and a dashboard smoke test that renders the app against the built warehouse.
 
 ## Run it locally
 
@@ -69,6 +85,9 @@ rm -rf data                       # clear the sample data
 python -m ingestion.run --backfill   # first run: full history, ~2 minutes
 python -m ingestion.run              # every day after: new rows only
 dbt build --project-dir dbt --profiles-dir dbt
+
+# Open the dashboard in your browser
+streamlit run dashboard/app.py
 
 # Browse the lineage graph and documentation
 dbt docs generate --project-dir dbt --profiles-dir dbt
@@ -89,13 +108,15 @@ dbt/
   seeds/                instrument and currency reference data
   macros/               cross-engine helpers (DuckDB / Databricks)
   tests/                custom data tests
-tests/            pytest unit tests
+dashboard/        Streamlit app over the Gold layer
+tests/            pytest unit tests and dashboard smoke test
 .github/workflows/ci.yml   runs pytest + ingestion + dbt build on every PR
 ```
 
 ## Roadmap
 
 - [x] Week 0 – local pipeline, star schema, tests, CI
+- [x] Streamlit dashboard over the Gold layer
 - [ ] Week 1 – Azure resource group, ADLS Gen2, Key Vault, budget alert
 - [ ] Week 2 – Azure Data Factory ingestion into ADLS `bronze`
 - [ ] Week 3 – Azure Databricks Silver layer; dbt `prod` target on Databricks

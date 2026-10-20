@@ -32,6 +32,9 @@ jobs:
       - name: dbt build (seeds, snapshot, models, data tests)
         run: dbt build --project-dir dbt --profiles-dir dbt --target dev
 
+      - name: Dashboard smoke test (renders against the built warehouse)
+        run: pytest -q tests/test_dashboard.py
+
       - name: Generate dbt docs
         run: dbt docs generate --project-dir dbt --profiles-dir dbt --target dev
 

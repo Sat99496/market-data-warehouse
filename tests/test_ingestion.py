@@ -85,7 +85,7 @@ def test_watermark_only_moves_forward(tmp_path):
 # ---------- End to end ----------
 
 def _run_ingestion(data_dir: Path) -> None:
-    env = {**os.environ, "MDW_DATA_DIR": str(data_dir)}
+    env = {**os.environ, "MDW_DATA_DIR": str(data_dir), "MDW_WAREHOUSE": str(data_dir / "warehouse.duckdb")}
     subprocess.run([sys.executable, "-m", "ingestion.run", "--sample"], cwd=PROJECT_ROOT, env=env, check=True)
 
 
