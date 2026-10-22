@@ -40,7 +40,7 @@ Bank of England ───┘   JSONL     DuckDB  dbt └─ fact_daily_prices �
 ## Design decisions
 
 - **Incremental, idempotent ingestion.** A watermark per source records the last date loaded, and it can only move forward. Re-running a day lands nothing new, and staging deduplicates on `(symbol, trade_date)`, keeping the latest copy, so replays and backfills are safe.
-- **Within the free API limit.** Alpha Vantage allows 25 requests a day. The backfill uses one full-history call per ticker; daily runs use one compact call per ticker.
+- **Within the free API limit.** Alpha Vantage's free tier allows 25 requests a day and returns the latest ~100 trading days per call (full history is a premium feature). Each run makes one call per ticker, and the watermarks mean history builds up day by day. A failing ticker is logged and retried next run without stopping the others.
 - **Correct currency conversion.** London prices are quoted in pence (GBX) and are divided by 100 before conversion. The Bank of England does not publish on UK bank holidays, so rates are forward-filled across every calendar day, and a test fails if a rate is carried forward for more than 5 days.
 - **SCD Type 2 instruments.** Renames and sector changes are tracked by a dbt snapshot. The first version is back-dated so historical prices still join.
 - **One codebase, two engines.** Engine-specific SQL (date series, forward fill, date formatting) sits behind dispatch macros in `dbt/macros/portable.sql`, so the same models run on DuckDB in CI and on Databricks in production.
@@ -82,7 +82,7 @@ pytest
 # 2. Real data
 cp .env.example .env              # add your free Alpha Vantage key
 rm -rf data                       # clear the sample data
-python -m ingestion.run --backfill   # first run: full history, ~2 minutes
+python -m ingestion.run --backfill   # first run: latest ~100 trading days (free tier), ~2 minutes
 python -m ingestion.run              # every day after: new rows only
 dbt build --project-dir dbt --profiles-dir dbt
 

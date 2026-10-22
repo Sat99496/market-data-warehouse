@@ -5,7 +5,8 @@ Examples
 Run everything offline with synthetic data (no API key, no network):
     python -m ingestion.run --sample
 
-First real run - pulls full history once per ticker:
+First real run - ignores watermarks and pulls everything the API offers
+(latest ~100 trading days on the free tier; full history on a premium key):
     python -m ingestion.run --backfill
 
 Daily incremental run - only new days since each watermark:
@@ -19,9 +20,11 @@ import os
 import time
 from datetime import date, timedelta
 
+import requests
+
 from ingestion import alpha_vantage, boe_fx, sample_data
 from ingestion.bronze import write_jsonl
-from ingestion.config import AV_SLEEP_SECONDS, BRONZE_DIR, STATE_DIR, TICKERS
+from ingestion.config import AV_FULL_HISTORY, AV_SLEEP_SECONDS, BRONZE_DIR, STATE_DIR, TICKERS
 from ingestion.load_raw import load_raw
 from ingestion.watermark import WatermarkStore
 
@@ -32,7 +35,7 @@ def ingest_prices(store: WatermarkStore, today: date, sample: bool, backfill: bo
     api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
     if not sample and not api_key:
         raise SystemExit("Set ALPHA_VANTAGE_API_KEY (see .env.example) or run with --sample.")
-    total = 0
+    total, failed = 0, []
     for i, symbol in enumerate(TICKERS):
         key = f"prices:{symbol}"
         since = None if backfill else store.get(key)
@@ -41,13 +44,24 @@ def ingest_prices(store: WatermarkStore, today: date, sample: bool, backfill: bo
         else:
             if i:
                 time.sleep(AV_SLEEP_SECONDS)  # free tier: 5 requests/minute
-            payload = alpha_vantage.fetch_daily(symbol, api_key, full_history=backfill or since is None)
+            want_full = AV_FULL_HISTORY and (backfill or since is None)
+            try:
+                payload = alpha_vantage.fetch_daily(symbol, api_key, full_history=want_full)
+            except (alpha_vantage.AlphaVantageError, requests.RequestException) as exc:
+                # One bad symbol must not stop the others; its watermark stays put, so the next run retries it.
+                log.error("prices %-9s FAILED: %s", symbol, exc)
+                failed.append(symbol)
+                continue
         rows = alpha_vantage.parse_daily(payload, since=since)
         write_jsonl(BRONZE_DIR, "prices", symbol, rows, today)
         if rows:
             store.set(key, date.fromisoformat(rows[-1]["trade_date"]))
         log.info("prices %-9s new rows: %d", symbol, len(rows))
         total += len(rows)
+    if failed:
+        log.warning("%d of %d symbols failed and will be retried next run: %s", len(failed), len(TICKERS), ", ".join(failed))
+        if len(failed) == len(TICKERS):
+            raise SystemExit("Every symbol failed - check your API key and the daily request limit (25/day on the free tier).")
     return total
 
 

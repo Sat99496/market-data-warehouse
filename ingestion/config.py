@@ -39,5 +39,10 @@ BOE_SERIES: dict[str, str] = {
 ALPHA_VANTAGE_URL = "https://www.alphavantage.co/query"
 BOE_URL = "https://www.bankofengland.co.uk/boeapps/database/_iadb-fromshowcolumns.asp"
 
+# Full price history (outputsize=full) is a premium Alpha Vantage feature.
+# The free tier returns the latest ~100 trading days per call ("compact").
+# Set ALPHA_VANTAGE_PREMIUM=true in .env if you ever upgrade.
+AV_FULL_HISTORY = os.getenv("ALPHA_VANTAGE_PREMIUM", "false").lower() == "true"
+
 # Seconds to wait between Alpha Vantage calls to respect the 5 requests/minute limit.
 AV_SLEEP_SECONDS = 13

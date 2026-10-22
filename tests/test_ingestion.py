@@ -100,3 +100,28 @@ def test_rerun_is_incremental_and_idempotent(tmp_path):
     marks = json.loads((tmp_path / "state" / "watermarks_sample.json").read_text())
     assert "fx" in marks and "prices:AAPL" in marks
     assert (tmp_path / "warehouse.duckdb").exists()
+
+
+# ---------- Resilience ----------
+
+def test_one_failing_symbol_does_not_stop_the_run(tmp_path, monkeypatch):
+    """A rate-limited or premium-only error on one symbol is logged and skipped; the rest still load."""
+    from ingestion import run as run_module
+
+    def fake_fetch(symbol, api_key, full_history=False):
+        assert full_history is False  # free tier: never request premium full history
+        if symbol == "MSFT":
+            raise alpha_vantage.AlphaVantageError("MSFT: premium feature")
+        return sample_daily_payload(symbol, date(2026, 1, 5), date(2026, 1, 9))
+
+    monkeypatch.setenv("ALPHA_VANTAGE_API_KEY", "test")
+    monkeypatch.setattr(run_module.alpha_vantage, "fetch_daily", fake_fetch)
+    monkeypatch.setattr(run_module, "AV_SLEEP_SECONDS", 0)
+    monkeypatch.setattr(run_module, "BRONZE_DIR", tmp_path / "bronze")
+    store = WatermarkStore(tmp_path / "wm.json")
+
+    total = run_module.ingest_prices(store, date(2026, 1, 9), sample=False, backfill=True)
+
+    assert total == 5 * (len(run_module.TICKERS) - 1)
+    assert store.get("prices:MSFT") is None          # failed symbol keeps no watermark, so it is retried
+    assert store.get("prices:AAPL") == date(2026, 1, 9)
