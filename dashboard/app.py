@@ -141,7 +141,7 @@ with tab_perf:
     st.dataframe(
         summary[["symbol", "company_name", "latest_gbp", "return_gbp", "volatility", "traded_value_gbp"]],
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={
             "symbol": "Symbol",
             "company_name": "Company",
@@ -168,7 +168,7 @@ with tab_fx:
     st.dataframe(
         fx,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={
             "symbol": "Symbol",
             "listing_currency": "Currency",
@@ -188,7 +188,7 @@ with tab_data:
     st.dataframe(
         view.sort_values(["trade_date", "symbol"], ascending=[False, True]),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
     st.download_button(
         "Download as CSV",
