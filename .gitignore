@@ -16,3 +16,4 @@ __pycache__/
 .venv/
 .pytest_cache/
 dbt/.user.yml
+.DS_Store

@@ -65,3 +65,17 @@ models:
       - name: close_gbp
         description: Fails if any price could not be converted to GBP (missing FX rate).
         data_tests: [not_null]
+
+  - name: monthly_performance
+    description: Monthly average price and return per instrument, in GBP.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [symbol, month_start]
+    columns:
+      - name: symbol
+        data_tests: [not_null]
+      - name: month_start
+        data_tests: [not_null]
+      - name: avg_close_gbp
+        data_tests: [not_null]
