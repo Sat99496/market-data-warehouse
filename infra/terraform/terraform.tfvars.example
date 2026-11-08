@@ -1,0 +1,6 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is in .gitignore, so your email is never committed.
+
+budget_email       = "you@example.com"
+monthly_budget_usd = 5
+# aws_region       = "eu-west-2"

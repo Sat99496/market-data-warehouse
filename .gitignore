@@ -17,3 +17,9 @@ __pycache__/
 .pytest_cache/
 dbt/.user.yml
 .DS_Store
+
+# Terraform
+infra/terraform/.terraform/
+*.tfstate
+*.tfstate.*
+infra/terraform/terraform.tfvars
