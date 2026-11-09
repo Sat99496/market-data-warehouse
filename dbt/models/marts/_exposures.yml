@@ -1,0 +1,16 @@
+version: 2
+
+exposures:
+  - name: market_dashboard
+    label: Market Data Warehouse dashboard
+    type: dashboard
+    maturity: medium
+    url: http://localhost:8501
+    description: >
+      Streamlit app (dashboard/app.py): growth of £100 per stock, return and volatility
+      in GBP, and the effect of USD/GBP moves on a UK investor's return.
+    depends_on:
+      - ref('fact_daily_prices')
+      - ref('dim_instrument')
+    owner:
+      name: Purna Satish Dasari

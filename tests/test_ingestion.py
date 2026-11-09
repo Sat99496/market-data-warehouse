@@ -125,3 +125,16 @@ def test_one_failing_symbol_does_not_stop_the_run(tmp_path, monkeypatch):
     assert total == 5 * (len(run_module.TICKERS) - 1)
     assert store.get("prices:MSFT") is None          # failed symbol keeps no watermark, so it is retried
     assert store.get("prices:AAPL") == date(2026, 1, 9)
+
+
+# ---------- Reference data ----------
+
+def test_tickers_match_instrument_seed():
+    """Every ingested ticker needs a row in the dbt seed, or its prices drop out of the Gold layer."""
+    import csv
+
+    from ingestion.config import TICKERS
+
+    with open(PROJECT_ROOT / "dbt" / "seeds" / "instruments.csv", newline="") as fh:
+        seed_symbols = {row["symbol"] for row in csv.DictReader(fh)}
+    assert set(TICKERS) == seed_symbols

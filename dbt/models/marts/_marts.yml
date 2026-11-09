@@ -37,11 +37,22 @@ models:
                 values: [1, 100]
 
   - name: fact_daily_prices
-    description: Daily prices per instrument in local currency and GBP.
+    description: >
+      Daily prices per instrument in local currency and GBP. Incremental: each run rewrites
+      the last `fact_lookback_days` days (default 10). The contract guarantees column names
+      and types to downstream users such as the dashboard.
+    config:
+      contract:
+        enforced: true
     columns:
       - name: price_key
+        data_type: varchar
+        description: Surrogate key of symbol and trade date.
+        constraints:
+          - type: not_null
         data_tests: [unique, not_null]
       - name: date_key
+        data_type: integer
         data_tests:
           - not_null
           - relationships:
@@ -49,6 +60,8 @@ models:
                 to: ref('dim_date')
                 field: date_key
       - name: instrument_key
+        data_type: varchar
+        description: The dim_instrument version that was valid on the trade date.
         data_tests:
           - not_null
           - relationships:
@@ -56,18 +69,50 @@ models:
                 to: ref('dim_instrument')
                 field: instrument_key
       - name: currency_key
+        data_type: varchar
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('dim_currency')
                 field: currency_key
+      - name: symbol
+        data_type: varchar
+      - name: trade_date
+        data_type: date
+      - name: open_local
+        data_type: double
+      - name: high_local
+        data_type: double
+      - name: low_local
+        data_type: double
+      - name: close_local
+        data_type: double
+        description: Close in the listing currency; London prices converted from pence to pounds.
+      - name: volume
+        data_type: bigint
+      - name: fx_units_per_gbp
+        data_type: double
       - name: close_gbp
+        data_type: double
         description: Fails if any price could not be converted to GBP (missing FX rate).
-        data_tests: [not_null]
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: traded_value_gbp
+        data_type: double
+      - name: daily_return_local
+        data_type: double
+        description: Day-on-day return in the listing currency. Null on each instrument's first day.
+      - name: daily_return_gbp
+        data_type: double
+        description: Day-on-day return in sterling, including the currency move. Null on each instrument's first day.
 
   - name: monthly_performance
-    description: Monthly average price and return per instrument, in GBP.
+    description: Monthly price and month-on-month return per instrument, in GBP.
     data_tests:
       - unique_combination:
           arguments:
@@ -79,3 +124,75 @@ models:
         data_tests: [not_null]
       - name: avg_close_gbp
         data_tests: [not_null]
+      - name: monthly_return
+        description: Last close this month / last close previous month - 1. Null for the first month.
+
+unit_tests:
+  - name: fact_joins_instrument_version_valid_on_trade_date
+    description: >
+      SCD Type 2 point-in-time join. VOD changes version on 2026-03-01, so a price on
+      27 Feb must take version 1 and a price on 2 Mar must take version 2.
+      Also checks London pence are divided by 100.
+    model: fact_daily_prices
+    overrides:
+      macros:
+        is_incremental: false  # test the full-build path
+    given:
+      - input: ref('stg_prices')
+        rows:
+          - {symbol: VOD.LON, trade_date: 2026-02-27, open_quote: 7200, high_quote: 7300, low_quote: 7100, close_quote: 7250, volume: 10}
+          - {symbol: VOD.LON, trade_date: 2026-03-02, open_quote: 7250, high_quote: 7300, low_quote: 7200, close_quote: 7300, volume: 10}
+      - input: ref('dim_instrument')
+        rows:
+          - {instrument_key: vod_v1, symbol: VOD.LON, listing_currency: GBP, price_divisor: 100, valid_from: 1900-01-01, valid_to: 2026-03-01}
+          - {instrument_key: vod_v2, symbol: VOD.LON, listing_currency: GBP, price_divisor: 100, valid_from: 2026-03-01, valid_to: null}
+      - input: ref('int_fx_rates_daily')
+        rows:
+          - {date_day: 2026-02-27, currency_code: GBP, units_per_gbp: 1.0}
+          - {date_day: 2026-03-02, currency_code: GBP, units_per_gbp: 1.0}
+    expect:
+      rows:
+        - {trade_date: 2026-02-27, instrument_key: vod_v1, close_local: 72.5, close_gbp: 72.5}
+        - {trade_date: 2026-03-02, instrument_key: vod_v2, close_local: 73.0, close_gbp: 73.0}
+
+  - name: fact_converts_usd_and_splits_local_vs_gbp_return
+    description: >
+      A US stock rises 25% in dollars while the dollar weakens against sterling
+      (1.25 -> 1.00 USD per GBP), so the sterling return is larger: 80 -> 125 GBP = +56.25%.
+    model: fact_daily_prices
+    overrides:
+      macros:
+        is_incremental: false  # test the full-build path
+    given:
+      - input: ref('stg_prices')
+        rows:
+          - {symbol: AAPL, trade_date: 2026-01-05, open_quote: 100, high_quote: 100, low_quote: 100, close_quote: 100, volume: 1}
+          - {symbol: AAPL, trade_date: 2026-01-06, open_quote: 125, high_quote: 125, low_quote: 125, close_quote: 125, volume: 1}
+      - input: ref('dim_instrument')
+        rows:
+          - {instrument_key: aapl_v1, symbol: AAPL, listing_currency: USD, price_divisor: 1, valid_from: 1900-01-01, valid_to: null}
+      - input: ref('int_fx_rates_daily')
+        rows:
+          - {date_day: 2026-01-05, currency_code: USD, units_per_gbp: 1.25}
+          - {date_day: 2026-01-06, currency_code: USD, units_per_gbp: 1.0}
+    expect:
+      rows:
+        - {trade_date: 2026-01-05, close_gbp: 80.0, daily_return_local: null, daily_return_gbp: null}
+        - {trade_date: 2026-01-06, close_gbp: 125.0, daily_return_local: 0.25, daily_return_gbp: 0.5625}
+
+  - name: monthly_return_is_month_on_month
+    description: >
+      February's return compares its last close (100) with January's last close (80),
+      not with February's first close (90): 100 / 80 - 1 = 25%.
+    model: monthly_performance
+    given:
+      - input: ref('fact_daily_prices')
+        rows:
+          - {symbol: AAPL, trade_date: 2026-01-02, close_gbp: 100.0}
+          - {symbol: AAPL, trade_date: 2026-01-30, close_gbp: 80.0}
+          - {symbol: AAPL, trade_date: 2026-02-02, close_gbp: 90.0}
+          - {symbol: AAPL, trade_date: 2026-02-27, close_gbp: 100.0}
+    expect:
+      rows:
+        - {symbol: AAPL, month_start: 2026-01-01, first_close_gbp: 100.0, last_close_gbp: 80.0, monthly_return: null}
+        - {symbol: AAPL, month_start: 2026-02-01, first_close_gbp: 90.0, last_close_gbp: 100.0, monthly_return: 0.25}

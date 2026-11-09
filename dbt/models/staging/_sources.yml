@@ -4,10 +4,18 @@ sources:
   - name: raw
     description: Raw tables loaded from the Bronze layer by ingestion/load_raw.py.
     schema: raw
+    config:
+      # Markets close at weekends and on bank holidays, so allow a long weekend
+      # before warning, and fail if nothing has landed for most of a week.
+      freshness:
+        warn_after: {count: 4, period: day}
+        error_after: {count: 6, period: day}
     tables:
       - name: prices
         description: Daily OHLCV bars from Alpha Vantage, one file per symbol per ingest date.
-        loaded_at_field: "cast(_ingested_at as timestamp)"
+        config:
+          loaded_at_field: "cast(_ingested_at as timestamp)"
       - name: fx
         description: Bank of England daily spot rates (units of foreign currency per 1 GBP).
-        loaded_at_field: "cast(_ingested_at as timestamp)"
+        config:
+          loaded_at_field: "cast(_ingested_at as timestamp)"

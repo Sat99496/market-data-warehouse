@@ -8,13 +8,15 @@ market_dw:
       schema: main
       threads: 4
 
-    # Azure (Weeks 3-4): uncomment once your Databricks workspace exists.
-    # Install the adapter with: pip install dbt-databricks
+    # AWS: uncomment once the Glue database and Athena workgroup exist.
+    # Install the adapter with: pip install dbt-athena
+    # Credentials come from the standard AWS environment (profile or role), never this file.
     # prod:
-    #   type: databricks
-    #   host: "{{ env_var('DATABRICKS_HOST') }}"          # e.g. adb-1234567890.12.azuredatabricks.net
-    #   http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}" # from your SQL warehouse or cluster
-    #   token: "{{ env_var('DATABRICKS_TOKEN') }}"
-    #   catalog: market_dw
+    #   type: athena
+    #   region_name: "{{ env_var('AWS_REGION', 'eu-west-2') }}"
+    #   database: awsdatacatalog
     #   schema: gold
+    #   s3_staging_dir: "{{ env_var('MDW_ATHENA_RESULTS') }}"   # e.g. s3://mdw-athena-results-<account-id>/
+    #   s3_data_dir: "{{ env_var('MDW_ATHENA_DATA') }}"          # e.g. s3://mdw-gold-<account-id>/
+    #   work_group: primary
     #   threads: 4
