@@ -5,5 +5,5 @@ dbt-duckdb>=1.9
 pytest>=8.0
 streamlit>=1.50
 pandas>=2.0
-# Weeks 3-4 on Azure only:
-# dbt-databricks>=1.10
+# AWS prod target only:
+# dbt-athena

@@ -1,3 +1,7 @@
+-- Grain: one row per instrument per calendar month, in GBP.
+-- monthly_return is month-on-month: this month's last close against last month's last close,
+-- so moves between the last trading day of one month and the first of the next are counted.
+-- It is null for each instrument's first month, which has no previous close.
 with daily as (
     select
         symbol,
@@ -13,16 +17,29 @@ ranked as (
         row_number() over (partition by symbol, month_start order by trade_date)      as first_day,
         row_number() over (partition by symbol, month_start order by trade_date desc) as last_day
     from daily
+),
+
+monthly as (
+    select
+        symbol,
+        month_start,
+        count(*)                                              as trading_days,
+        round(avg(close_gbp), 2)                              as avg_close_gbp,
+        max(case when first_day = 1 then close_gbp end)       as first_close_gbp,
+        max(case when last_day = 1 then close_gbp end)        as last_close_gbp
+    from ranked
+    group by symbol, month_start
 )
 
 select
     symbol,
     month_start,
-    count(*)                                              as trading_days,
-    round(avg(close_gbp), 2)                              as avg_close_gbp,
-    max(case when first_day = 1 then close_gbp end)       as first_close_gbp,
-    max(case when last_day = 1 then close_gbp end)        as last_close_gbp,
-    max(case when last_day = 1 then close_gbp end)
-      / max(case when first_day = 1 then close_gbp end) - 1 as monthly_return
-from ranked
-group by symbol, month_start
+    trading_days,
+    avg_close_gbp,
+    first_close_gbp,
+    last_close_gbp,
+    lag(last_close_gbp) over (partition by symbol order by month_start)   as prev_month_close_gbp,
+    last_close_gbp
+      / lag(last_close_gbp) over (partition by symbol order by month_start) - 1
+                                                                           as monthly_return
+from monthly

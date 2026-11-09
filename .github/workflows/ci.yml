@@ -29,8 +29,17 @@ jobs:
       - name: Ingest synthetic data into Bronze and DuckDB
         run: python -m ingestion.run --sample
 
-      - name: dbt build (seeds, snapshot, models, data tests)
+      - name: Install dbt packages
+        run: dbt deps --project-dir dbt --profiles-dir dbt
+
+      - name: Check source freshness
+        run: dbt source freshness --project-dir dbt --profiles-dir dbt --target dev
+
+      - name: dbt build (seeds, snapshot, models, unit tests, data tests)
         run: dbt build --project-dir dbt --profiles-dir dbt --target dev
+
+      - name: Re-run dbt build (checks the incremental path)
+        run: dbt build --project-dir dbt --profiles-dir dbt --target dev --select fact_daily_prices+
 
       - name: Dashboard smoke test (renders against the built warehouse)
         run: pytest -q tests/test_dashboard.py

@@ -37,7 +37,7 @@ def load_prices(path: str) -> pd.DataFrame:
             f.fx_units_per_gbp,
             f.volume,
             f.traded_value_gbp,
-            f.daily_return
+            f.daily_return_gbp as daily_return
         from gold.fact_daily_prices f
         join gold.dim_instrument i on i.instrument_key = f.instrument_key
         order by f.symbol, f.trade_date
